@@ -1,6 +1,10 @@
+# frozen_string_literal: true
+
 require "time"
 
 module Siwe
+  # Class that defines the EIP-4361 message fields and some utility methods to
+  # generate/validate the messages
   class Message
     # RFC 4501 dns authority that is requesting the signing.
     attr_accessor :domain
@@ -84,7 +88,7 @@ module Siwe
       expiration_time = "Expiration Time: #{@expiration_time}"
       not_before = "Not Before: #{@not_before}"
       request_id = "Request ID: #{@request_id}"
-      resources = "Resources: #{@resources.each { |x| "- #{x}" }.join("\n")}"
+      resources = "Resources:\n#{@resources.map { |x| "- #{x}" }.join("\n")}"
 
       body.push(expiration_time) unless @expiration_time.to_s.strip.empty?
 
@@ -92,7 +96,7 @@ module Siwe
 
       body.push(request_id) unless @request_id.to_s.strip.empty?
 
-      body.push(resources) unless @resources.length == 0
+      body.push(resources) unless @resources.empty?
 
       body = body.join("\n")
 

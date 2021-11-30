@@ -2,6 +2,7 @@
 
 require_relative "siwe/version"
 
+# Main module of siwe
 module Siwe
   autoload :Message, "siwe/message"
   autoload :Util, "siwe/util"
