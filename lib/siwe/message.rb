@@ -2,6 +2,25 @@
 
 require "time"
 
+DOMAIN = "^(?<domain>([^?#]*)) wants you to sign in with your Ethereum account:\\n"
+ADDRESS = "(?<address>0x[a-zA-Z0-9]{40})\\n\\n"
+STATEMENT = "((?<statement>[^\\n]+)\\n)?\\n"
+URI = "(([^:?#]+):)?(([^?#]*))?([^?#]*)(\\?([^#]*))?(#(.*))"
+URI_LINE = "URI: (?<uri>#{URI}?)\\n"
+VERSION = "Version: (?<version>1)\\n"
+CHAIN_ID = "Chain ID: (?<chain_id>[0-9]+)\\n"
+NONCE = "Nonce: (?<nonce>[a-zA-Z0-9]{8,})\\n"
+DATETIME = "([0-9]+)-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])[Tt]([01][0-9]|2[0-3]):([0-5][0-9])"\
+           ":([0-5][0-9]|60)(\.[0-9]+)?(([Zz])|([\+|\-]([01][0-9]|2[0-3]):[0-5][0-9]))"
+ISSUED_AT = "Issued At: (?<issued_at>#{DATETIME})"
+EXPIRATION_TIME = "(\\nExpiration Time: (?<expiration_time>#{DATETIME}))?"
+NOT_BEFORE = "(\\nNot Before: (?<not_before>#{DATETIME}))?"
+REQUEST_ID = "(\\nRequest ID: (?<request_id>[-._~!$&'()*+,;=:@%a-zA-Z0-9]*))?"
+RESOURCES = "(\\nResources:(?<resources>(\\n- #{URI}?)+))?$"
+
+MESSAGE = "#{DOMAIN}#{ADDRESS}#{STATEMENT}#{URI_LINE}#{VERSION}#{CHAIN_ID}#{NONCE}"\
+          "#{ISSUED_AT}#{EXPIRATION_TIME}#{NOT_BEFORE}#{REQUEST_ID}#{RESOURCES}"
+
 module Siwe
   # Class that defines the EIP-4361 message fields and some utility methods to
   # generate/validate the messages
@@ -61,6 +80,7 @@ module Siwe
       @uri = uri
       @version = version
 
+      @statement = options.fetch(:statement, "")
       @issued_at = options.fetch(:issued_at, Time.now.utc.iso8601)
       @nonce = options.fetch(:nonce, Siwe::Util.generate_nonce)
       @chain_id = options.fetch(:chain_id, "1")
@@ -71,14 +91,48 @@ module Siwe
       @signature = options.fetch(:signature, "")
     end
 
-    def personal_message
-      greeting = "#{@domain} wants you to sign in with your Ethereum account:"
-      address = @address.to_s
+    def self.from_str(str)
+      if (message = str.match(MESSAGE))
+        new(
+          message[:domain],
+          message[:address],
+          message[:uri],
+          message[:version],
+          {
+            statement: message[:statement] || "",
+            issued_at: message[:issued_at],
+            nonce: message[:nonce],
+            chain_id: message[:chain_id],
+            expiration_time: message[:expiration_time] || "",
+            not_before: message[:not_before] || "",
+            request_id: message[:request_id] || "",
+            resources: message[:resources]&.split("\n- ")&.drop(1) || []
+          }
+        )
+      else
+        throw "Invalid message input."
+      end
+    end
 
-      header = [greeting, address].join("\n")
+    def validate; end
+
+    def personal_sign
+      greeting = "#{@domain} wants you to sign in with your Ethereum account:"
+      address = @address
+      statement = "\n#{@statement}\n"
+
+      header = [greeting, address]
+
+      if @statement.empty?
+        header.push("\n")
+      else
+        header.push(statement)
+      end
+
+      header = header.join("\n")
 
       uri = "URI: #{@uri}"
-      version = "Version #{@version}"
+      version = "Version: #{@version}"
       chain_id = "Chain ID: #{@chain_id}"
       nonce = "Nonce: #{@nonce}"
       issued_at = "Issued At: #{@issued_at}"
@@ -100,7 +154,7 @@ module Siwe
 
       body = body.join("\n")
 
-      [header, body].join("\n\n")
+      [header, body].join("\n")
     end
   end
 end
