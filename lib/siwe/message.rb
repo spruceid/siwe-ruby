@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "time"
+require "eth"
 
 DOMAIN = "^(?<domain>([^?#]*)) wants you to sign in with your Ethereum account:\\n"
 ADDRESS = "(?<address>0x[a-zA-Z0-9]{40})\\n\\n"
@@ -80,19 +81,19 @@ module Siwe
       @uri = uri
       @version = version
 
-      @statement = options.fetch(:statement, "")
-      @issued_at = options.fetch(:issued_at, Time.now.utc.iso8601)
-      @nonce = options.fetch(:nonce, Siwe::Util.generate_nonce)
-      @chain_id = options.fetch(:chain_id, "1")
-      @expiration_time = options.fetch(:expiration_time, "")
-      @not_before = options.fetch(:not_before, "")
-      @request_id = options.fetch(:request_id, "")
-      @resources = options.fetch(:resources, [])
-      @signature = options.fetch(:signature, "")
+      @statement = options.fetch :statement, ""
+      @issued_at = options.fetch :issued_at, Time.now.utc.iso8601
+      @nonce = options.fetch :nonce, Siwe::Util.generate_nonce
+      @chain_id = options.fetch :chain_id, "1"
+      @expiration_time = options.fetch :expiration_time, ""
+      @not_before = options.fetch :not_before, ""
+      @request_id = options.fetch :request_id, ""
+      @resources = options.fetch :resources, []
+      @signature = options.fetch :signature, ""
     end
 
     def self.from_str(str)
-      if (message = str.match(MESSAGE))
+      if (message = str.match MESSAGE)
         new(
           message[:domain],
           message[:address],
@@ -114,7 +115,13 @@ module Siwe
       end
     end
 
-    def validate; end
+    def validate
+      raise "Missing signature field." if @signature.empty?
+
+      pub_key = Eth::Key.personal_recover personal_sign, @signature
+      signature_address = Eth::Utils.public_key_to_address pub_key
+      raise "Signature doesn't match message." unless signature_address.downcase.eql? @address.downcase
+    end
 
     def personal_sign
       greeting = "#{@domain} wants you to sign in with your Ethereum account:"
@@ -124,12 +131,12 @@ module Siwe
       header = [greeting, address]
 
       if @statement.empty?
-        header.push("\n")
+        header.push "\n"
       else
-        header.push(statement)
+        header.push statement
       end
 
-      header = header.join("\n")
+      header = header.join "\n"
 
       uri = "URI: #{@uri}"
       version = "Version: #{@version}"
@@ -142,19 +149,19 @@ module Siwe
       expiration_time = "Expiration Time: #{@expiration_time}"
       not_before = "Not Before: #{@not_before}"
       request_id = "Request ID: #{@request_id}"
-      resources = "Resources:\n#{@resources.map { |x| "- #{x}" }.join("\n")}"
+      resources = "Resources:\n#{@resources.map { |x| "- #{x}" }.join "\n"}"
 
-      body.push(expiration_time) unless @expiration_time.to_s.strip.empty?
+      body.push expiration_time unless @expiration_time.to_s.strip.empty?
 
-      body.push(not_before) unless @not_before.to_s.strip.empty?
+      body.push not_before unless @not_before.to_s.strip.empty?
 
-      body.push(request_id) unless @request_id.to_s.strip.empty?
+      body.push request_id unless @request_id.to_s.strip.empty?
 
-      body.push(resources) unless @resources.empty?
+      body.push resources unless @resources.empty?
 
-      body = body.join("\n")
+      body = body.join "\n"
 
-      [header, body].join("\n")
+      [header, body].join "\n"
     end
   end
 end

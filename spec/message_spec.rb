@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "time"
+require "eth"
 
 def days(num)
   num * 24 * 60 * 60
@@ -95,5 +96,26 @@ RSpec.describe Siwe::Message do
     to_str = @message.personal_sign
     from_str = Siwe::Message.from_str(to_str)
     expect(from_str.personal_sign).to eql(to_str)
+  end
+
+  it "Throws an error if the message is missing the signature" do
+    @message.signature = ""
+    expect { @message.validate }.to raise_exception(RuntimeError, "Missing signature field.")
+  end
+
+  it "Successfully validates a signed message" do
+    key = Eth::Key.new
+    @message.address = key.address
+    @message.signature = key.personal_sign(@message.personal_sign)
+    expect @message.validate
+  end
+
+  it "Fails with tempered message" do
+    villain_key = Eth::Key.new
+    key = Eth::Key.new
+    @message.address = key.address
+    @message.signature = key.personal_sign(@message.personal_sign)
+    @message.address = villain_key.address
+    expect { @message.validate }.to raise_exception(RuntimeError, "Signature doesn't match message.")
   end
 end
