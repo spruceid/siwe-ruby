@@ -4,24 +4,25 @@ require "time"
 require "eth"
 require "json"
 
-DOMAIN = "^(?<domain>([^?#]*)) wants you to sign in with your Ethereum account:\\n"
-ADDRESS = "(?<address>0x[a-zA-Z0-9]{40})\\n\\n"
-STATEMENT = "((?<statement>[^\\n]+)\\n)?\\n"
-URI = "(([^:?#]+):)?(([^?#]*))?([^?#]*)(\\?([^#]*))?(#(.*))"
-URI_LINE = "URI: (?<uri>#{URI}?)\\n"
-VERSION = "Version: (?<version>1)\\n"
-CHAIN_ID = "Chain ID: (?<chain_id>[0-9]+)\\n"
-NONCE = "Nonce: (?<nonce>[a-zA-Z0-9]{8,})\\n"
-DATETIME = "([0-9]+)-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])[Tt]([01][0-9]|2[0-3]):([0-5][0-9])"\
-           ":([0-5][0-9]|60)(\.[0-9]+)?(([Zz])|([\+|\-]([01][0-9]|2[0-3]):[0-5][0-9]))"
-ISSUED_AT = "Issued At: (?<issued_at>#{DATETIME})"
-EXPIRATION_TIME = "(\\nExpiration Time: (?<expiration_time>#{DATETIME}))?"
-NOT_BEFORE = "(\\nNot Before: (?<not_before>#{DATETIME}))?"
-REQUEST_ID = "(\\nRequest ID: (?<request_id>[-._~!$&'()*+,;=:@%a-zA-Z0-9]*))?"
-RESOURCES = "(\\nResources:(?<resources>(\\n- #{URI}?)+))?$"
+SIWE_DOMAIN = "^(?<domain>([^?#]*)) wants you to sign in with your Ethereum account:\\n"
+SIWE_ADDRESS = "(?<address>0x[a-zA-Z0-9]{40})\\n\\n"
+SIWE_STATEMENT = "((?<statement>[^\\n]+)\\n)?\\n"
+SIWE_URI = "(([^:?#]+):)?(([^?#]*))?([^?#]*)(\\?([^#]*))?(#(.*))"
+SIWE_URI_LINE = "URI: (?<uri>#{SIWE_URI}?)\\n"
+SIWE_VERSION = "Version: (?<version>1)\\n"
+SIWE_CHAIN_ID = "Chain ID: (?<chain_id>[0-9]+)\\n"
+SIWE_NONCE = "Nonce: (?<nonce>[a-zA-Z0-9]{8,})\\n"
+SIWE_DATETIME = "([0-9]+)-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])[Tt]([01][0-9]|2[0-3]):([0-5][0-9])"\
+                ":([0-5][0-9]|60)(\.[0-9]+)?(([Zz])|([\+|\-]([01][0-9]|2[0-3]):[0-5][0-9]))"
+SIWE_ISSUED_AT = "Issued At: (?<issued_at>#{SIWE_DATETIME})"
+SIWE_EXPIRATION_TIME = "(\\nExpiration Time: (?<expiration_time>#{SIWE_DATETIME}))?"
+SIWE_NOT_BEFORE = "(\\nNot Before: (?<not_before>#{SIWE_DATETIME}))?"
+SIWE_REQUEST_ID = "(\\nRequest ID: (?<request_id>[-._~!$&'()*+,;=:@%a-zA-Z0-9]*))?"
+SIWE_RESOURCES = "(\\nResources:(?<resources>(\\n- #{SIWE_URI}?)+))?$"
 
-MESSAGE = "#{DOMAIN}#{ADDRESS}#{STATEMENT}#{URI_LINE}#{VERSION}#{CHAIN_ID}#{NONCE}"\
-          "#{ISSUED_AT}#{EXPIRATION_TIME}#{NOT_BEFORE}#{REQUEST_ID}#{RESOURCES}"
+SIWE_MESSAGE = "#{SIWE_DOMAIN}#{SIWE_ADDRESS}#{SIWE_STATEMENT}#{SIWE_URI_LINE}#{SIWE_VERSION}#{SIWE_CHAIN_ID}"\
+               "#{SIWE_NONCE}#{SIWE_ISSUED_AT}#{SIWE_EXPIRATION_TIME}#{SIWE_NOT_BEFORE}#{SIWE_REQUEST_ID}"\
+               "#{SIWE_RESOURCES}"
 
 module Siwe
   # Class that defines the EIP-4361 message fields and some utility methods to
@@ -91,11 +92,12 @@ module Siwe
       @request_id = options.fetch :request_id, ""
       @resources = options.fetch :resources, []
       @signature = options.fetch :signature, ""
+      validate(true)
     end
 
     def self.from_message(msg)
-      if (message = msg.match MESSAGE)
-        new(
+      if (message = msg.match SIWE_MESSAGE)
+        msg = new(
           message[:domain],
           message[:address],
           message[:uri],
@@ -111,6 +113,8 @@ module Siwe
             resources: message[:resources]&.split("\n- ")&.drop(1) || []
           }
         )
+        msg.validate(true)
+        msg
       else
         throw "Invalid message input."
       end
@@ -137,7 +141,7 @@ module Siwe
 
     def self.from_json_string(str)
       obj = JSON.parse str, { symbolize_names: true }
-      Siwe::Message.new(
+      msg = Siwe::Message.new(
         obj[:domain],
         obj[:address],
         obj[:uri],
@@ -153,14 +157,23 @@ module Siwe
           signature: obj[:signature]
         }
       )
+      msg.validate(true)
+      msg
     end
 
-    def validate
-      raise "Missing signature field." if @signature.empty?
+    def validate(skip_signature = false)
+      raise "Message expired." if !@expiration_time.empty? && Time.now.utc > Time.parse(@expiration_time)
+      raise "Message not yet valid." if !@not_before.empty? && Time.now.utc < Time.parse(@not_before)
 
-      pub_key = Eth::Key.personal_recover personal_sign, @signature
-      signature_address = Eth::Utils.public_key_to_address pub_key
-      raise "Signature doesn't match message." unless signature_address.downcase.eql? @address.downcase
+      unless skip_signature
+        raise "Missing signature field." if @signature.empty?
+
+        pub_key = Eth::Key.personal_recover personal_sign, @signature
+        signature_address = Eth::Utils.public_key_to_address pub_key
+        raise "Signature doesn't match message." unless signature_address.downcase.eql? @address.downcase
+      end
+
+      true
     end
 
     def personal_sign

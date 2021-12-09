@@ -18,7 +18,7 @@ RSpec.describe Siwe::Message do
     @nonce = Siwe::Util.generate_nonce
     @chain_id = "1"
     @expiration_time = (Time.now.utc + days(2)).iso8601
-    @not_before = (Time.now.utc + days(1)).iso8601
+    @not_before = (Time.now.utc + days(-1)).iso8601
     @request_id = "some-id"
     @resources = ["https://example.com/resources/1", "https://example.com/resources/2"]
     @signature = "A signature"
@@ -108,11 +108,28 @@ RSpec.describe Siwe::Message do
     expect { @message.validate }.to raise_exception(RuntimeError, "Missing signature field.")
   end
 
+  it "Throws an error if the message is not yet valid" do
+    key = Eth::Key.new
+    @message.address = key.address
+    @message.not_before = (Time.now.utc + days(1)).iso8601
+    @message.signature = key.personal_sign(@message.personal_sign)
+    expect { @message.validate }.to raise_exception(RuntimeError, "Message not yet valid.")
+  end
+
+  it "Throws an error if the message is expired" do
+    key = Eth::Key.new
+    @message.address = key.address
+    @message.not_before = Time.now.utc.iso8601
+    @message.expiration_time = (Time.now.utc + days(-2)).iso8601
+    @message.signature = key.personal_sign(@message.personal_sign)
+    expect { @message.validate }.to raise_exception(RuntimeError, "Message expired.")
+  end
+
   it "Successfully validates a signed message" do
     key = Eth::Key.new
     @message.address = key.address
     @message.signature = key.personal_sign(@message.personal_sign)
-    expect @message.validate
+    expect(@message.validate).to eql(true)
   end
 
   it "Fails with tempered message" do

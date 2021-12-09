@@ -29,5 +29,8 @@ Metrics/PerceivedComplexity:
 Metrics/ClassLength:
   Enabled: false
 
+Style/OptionalBooleanParameter:
+  Enabled: false
+
 Layout/LineLength:
   Max: 120
