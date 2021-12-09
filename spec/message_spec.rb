@@ -71,18 +71,23 @@ RSpec.describe Siwe::Message do
     expect(@message.personal_sign.empty?)
   end
 
+  it "Parses message to json string and json string to class" do
+    json = @message.to_json_string
+    expect(Siwe::Message.from_json_string(json) == @message)
+  end
+
   it "Matches all fields of the created message when a string with all fields is given" do
     to_str = @message.personal_sign
-    from_str = Siwe::Message.from_str(to_str)
-    expect(from_str.personal_sign).to eql(to_str)
+    from_message = Siwe::Message.from_message(to_str)
+    expect(from_message.personal_sign).to eql(to_str)
   end
 
   it "Matches all fields of the created message when a string with only mandarity fields" do
     @message = Siwe::Message.new(@domain, @address, @uri, @version)
 
     to_str = @message.personal_sign
-    from_str = Siwe::Message.from_str(to_str)
-    expect(from_str.personal_sign).to eql(to_str)
+    from_message = Siwe::Message.from_message(to_str)
+    expect(from_message.personal_sign).to eql(to_str)
   end
 
   it "Matches all fields of the created message when a string with some optional fields" do
@@ -94,8 +99,8 @@ RSpec.describe Siwe::Message do
                                  })
 
     to_str = @message.personal_sign
-    from_str = Siwe::Message.from_str(to_str)
-    expect(from_str.personal_sign).to eql(to_str)
+    from_message = Siwe::Message.from_message(to_str)
+    expect(from_message.personal_sign).to eql(to_str)
   end
 
   it "Throws an error if the message is missing the signature" do

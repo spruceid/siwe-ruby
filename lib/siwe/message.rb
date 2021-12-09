@@ -2,6 +2,7 @@
 
 require "time"
 require "eth"
+require "json"
 
 DOMAIN = "^(?<domain>([^?#]*)) wants you to sign in with your Ethereum account:\\n"
 ADDRESS = "(?<address>0x[a-zA-Z0-9]{40})\\n\\n"
@@ -92,8 +93,8 @@ module Siwe
       @signature = options.fetch :signature, ""
     end
 
-    def self.from_str(str)
-      if (message = str.match MESSAGE)
+    def self.from_message(msg)
+      if (message = msg.match MESSAGE)
         new(
           message[:domain],
           message[:address],
@@ -113,6 +114,45 @@ module Siwe
       else
         throw "Invalid message input."
       end
+    end
+
+    def to_json_string
+      obj = {
+        domain: @domain,
+        address: @address,
+        uri: @uri,
+        version: @version,
+        chain_id: @chain_id,
+        nonce: @nonce,
+        issued_at: @issued_at,
+        statement: @statement,
+        expiration_time: @expiration_time,
+        not_before: @not_before,
+        request_id: @request_id,
+        resources: @resources,
+        signature: @signature
+      }
+      obj.to_json
+    end
+
+    def self.from_json_string(str)
+      obj = JSON.parse str, { symbolize_names: true }
+      Siwe::Message.new(
+        obj[:domain],
+        obj[:address],
+        obj[:uri],
+        obj[:version], {
+          chain_id: obj[:chain_id],
+          nonce: obj[:nonce],
+          issued_at: obj[:issued_at],
+          statement: obj[:statement],
+          expiration_time: obj[:expiration_time],
+          not_before: obj[:not_before],
+          request_id: obj[:request_id],
+          resources: obj[:resources],
+          signature: obj[:signature]
+        }
+      )
     end
 
     def validate

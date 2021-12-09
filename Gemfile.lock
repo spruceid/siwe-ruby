@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    siwe (0.1.0)
+    siwe (0.1.1)
       eth (~> 0.4.17)
 
 GEM
