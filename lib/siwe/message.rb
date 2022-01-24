@@ -168,9 +168,9 @@ module Siwe
       unless skip_signature
         raise "Missing signature field." if @signature.empty?
 
-        pub_key = Eth::Key.personal_recover personal_sign, @signature
-        signature_address = Eth::Utils.public_key_to_address pub_key
-        raise "Signature doesn't match message." unless signature_address.downcase.eql? @address.downcase
+        pub_key = Eth::Signature.personal_recover personal_sign, @signature
+        signature_address = Eth::Util.public_key_to_address pub_key
+        raise "Signature doesn't match message." unless signature_address.to_s.downcase.eql? @address.to_s.downcase
       end
 
       true
