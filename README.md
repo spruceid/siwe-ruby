@@ -1,5 +1,5 @@
 # siwe-ruby
-A Ruby implementation of EIP-4631: Sign In With Ethereum.
+A Ruby implementation of EIP-4361: Sign In With Ethereum.
 
 ## Getting started
 ### Dependencies
