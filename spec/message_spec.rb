@@ -21,7 +21,6 @@ RSpec.describe Siwe::Message do
     @not_before = (Time.now.utc + days(-1)).iso8601
     @request_id = "some-id"
     @resources = ["https://example.com/resources/1", "https://example.com/resources/2"]
-    @signature = "A signature"
     @message = Siwe::Message.new(@domain, @address, @uri, @version, {
                                    issued_at: @issued_at,
                                    statement: @statement,
@@ -30,8 +29,7 @@ RSpec.describe Siwe::Message do
                                    expiration_time: @expiration_time,
                                    not_before: @not_before,
                                    request_id: @request_id,
-                                   resources: @resources,
-                                   signature: @signature
+                                   resources: @resources
                                  })
   end
 
@@ -47,7 +45,6 @@ RSpec.describe Siwe::Message do
     expect(@message.not_before).to eql(@not_before)
     expect(@message.request_id).to eql(@request_id)
     expect(@message.resources).to eql(@resources)
-    expect(@message.signature).to eql(@signature)
   end
 
   it "Creates a message with the correct fields using only mandatory ones" do
@@ -64,11 +61,10 @@ RSpec.describe Siwe::Message do
     expect(@message.not_before).to eql("")
     expect(@message.request_id).to eql("")
     expect(@message.resources.length).to eql(0)
-    expect(@message.signature).to eql("")
   end
 
   it "Returns a message for the object" do
-    expect(@message.personal_sign.empty?)
+    expect(@message.prepare_message.empty?)
   end
 
   it "Parses message to json string and json string to class" do
@@ -77,17 +73,17 @@ RSpec.describe Siwe::Message do
   end
 
   it "Matches all fields of the created message when a string with all fields is given" do
-    to_str = @message.personal_sign
+    to_str = @message.prepare_message
     from_message = Siwe::Message.from_message(to_str)
-    expect(from_message.personal_sign).to eql(to_str)
+    expect(from_message.prepare_message).to eql(to_str)
   end
 
   it "Matches all fields of the created message when a string with only mandarity fields" do
     @message = Siwe::Message.new(@domain, @address, @uri, @version)
 
-    to_str = @message.personal_sign
+    to_str = @message.prepare_message
     from_message = Siwe::Message.from_message(to_str)
-    expect(from_message.personal_sign).to eql(to_str)
+    expect(from_message.prepare_message).to eql(to_str)
   end
 
   it "Matches all fields of the created message when a string with some optional fields" do
@@ -98,22 +94,21 @@ RSpec.describe Siwe::Message do
                                    not_before: @not_before
                                  })
 
-    to_str = @message.personal_sign
+    to_str = @message.prepare_message
     from_message = Siwe::Message.from_message(to_str)
-    expect(from_message.personal_sign).to eql(to_str)
+    expect(from_message.prepare_message).to eql(to_str)
   end
 
   it "Throws an error if the message is missing the signature" do
-    @message.signature = ""
-    expect { @message.validate }.to raise_exception(RuntimeError, "Missing signature field.")
+    expect { @message.validate("") }.to raise_exception(Siwe::InvalidSignature, "Signature doesn't match message.")
   end
 
   it "Throws an error if the message is not yet valid" do
     key = Eth::Key.new
     @message.address = key.address
     @message.not_before = (Time.now.utc + days(1)).iso8601
-    @message.signature = key.personal_sign(@message.personal_sign)
-    expect { @message.validate }.to raise_exception(RuntimeError, "Message not yet valid.")
+    signature = key.personal_sign(@message.prepare_message)
+    expect { @message.validate(signature) }.to raise_exception(Siwe::NotValidMessage, "Message not yet valid.")
   end
 
   it "Throws an error if the message is expired" do
@@ -121,23 +116,25 @@ RSpec.describe Siwe::Message do
     @message.address = key.address
     @message.not_before = Time.now.utc.iso8601
     @message.expiration_time = (Time.now.utc + days(-2)).iso8601
-    @message.signature = key.personal_sign(@message.personal_sign)
-    expect { @message.validate }.to raise_exception(RuntimeError, "Message expired.")
+    signature = key.personal_sign(@message.prepare_message)
+    expect { @message.validate(signature) }.to raise_exception(Siwe::ExpiredMessage, "Message expired.")
   end
 
   it "Successfully validates a signed message" do
     key = Eth::Key.new
     @message.address = key.address
-    @message.signature = key.personal_sign(@message.personal_sign)
-    expect(@message.validate).to eql(true)
+    signature = key.personal_sign(@message.prepare_message)
+    expect(@message.validate(signature)).to eql(true)
   end
 
   it "Fails with tempered message" do
     villain_key = Eth::Key.new
     key = Eth::Key.new
     @message.address = key.address
-    @message.signature = key.personal_sign(@message.personal_sign)
+    signature = key.personal_sign(@message.prepare_message)
     @message.address = villain_key.address
-    expect { @message.validate }.to raise_exception(RuntimeError, "Signature doesn't match message.")
+    expect do
+      @message.validate(signature)
+    end.to raise_exception(Siwe::InvalidSignature, "Signature doesn't match message.")
   end
 end

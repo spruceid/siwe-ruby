@@ -74,9 +74,6 @@ module Siwe
     # expressed as RFC 3986 URIs separated by `\n- `.
     attr_accessor :resources
 
-    # Signature of the message signed by the wallet.
-    attr_accessor :signature
-
     def initialize(domain, address, uri, version, options = {})
       @domain = domain
       @address = address
@@ -91,13 +88,11 @@ module Siwe
       @not_before = options.fetch :not_before, ""
       @request_id = options.fetch :request_id, ""
       @resources = options.fetch :resources, []
-      @signature = options.fetch :signature, ""
-      validate(true)
     end
 
     def self.from_message(msg)
       if (message = msg.match SIWE_MESSAGE)
-        msg = new(
+        new(
           message[:domain],
           message[:address],
           message[:uri],
@@ -113,8 +108,7 @@ module Siwe
             resources: message[:resources]&.split("\n- ")&.drop(1) || []
           }
         )
-        msg.validate(true)
-        msg
+
       else
         throw "Invalid message input."
       end
@@ -133,15 +127,14 @@ module Siwe
         expiration_time: @expiration_time,
         not_before: @not_before,
         request_id: @request_id,
-        resources: @resources,
-        signature: @signature
+        resources: @resources
       }
       obj.to_json
     end
 
     def self.from_json_string(str)
       obj = JSON.parse str, { symbolize_names: true }
-      msg = Siwe::Message.new(
+      Siwe::Message.new(
         obj[:domain],
         obj[:address],
         obj[:uri],
@@ -153,30 +146,30 @@ module Siwe
           expiration_time: obj[:expiration_time],
           not_before: obj[:not_before],
           request_id: obj[:request_id],
-          resources: obj[:resources],
-          signature: obj[:signature]
+          resources: obj[:resources]
         }
       )
-      msg.validate(true)
-      msg
     end
 
-    def validate(skip_signature = false)
-      raise "Message expired." if !@expiration_time.empty? && Time.now.utc > Time.parse(@expiration_time)
-      raise "Message not yet valid." if !@not_before.empty? && Time.now.utc < Time.parse(@not_before)
+    def validate(signature)
+      raise Siwe::ExpiredMessage if !@expiration_time.empty? && Time.now.utc > Time.parse(@expiration_time)
+      raise Siwe::NotValidMessage if !@not_before.empty? && Time.now.utc < Time.parse(@not_before)
 
-      unless skip_signature
-        raise "Missing signature field." if @signature.empty?
+      raise Siwe::InvalidSignature if signature.empty?
 
-        pub_key = Eth::Key.personal_recover personal_sign, @signature
-        signature_address = Eth::Utils.public_key_to_address pub_key
-        raise "Signature doesn't match message." unless signature_address.downcase.eql? @address.downcase
+      begin
+        pub_key = Eth::Signature.personal_recover prepare_message, signature
+        signature_address = Eth::Util.public_key_to_address pub_key
+      rescue StandardError
+        raise Siwe::InvalidSignature
       end
+
+      raise Siwe::InvalidSignature unless signature_address.to_s.downcase.eql? @address.to_s.downcase
 
       true
     end
 
-    def personal_sign
+    def prepare_message
       greeting = "#{@domain} wants you to sign in with your Ethereum account:"
       address = @address
       statement = "\n#{@statement}\n"
