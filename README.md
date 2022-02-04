@@ -90,7 +90,7 @@ Siwe::Message.new("domain.example", "0x9D85ca56217D2bb651b00f15e694EB7E713637D4"
 
 ## Example
 Parsing and verifying a Siwe::Message:
-```
+```ruby
 require 'siwe'
 
 begin
