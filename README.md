@@ -80,7 +80,7 @@ end
 ```
 
 ## Serialization of a SIWE Message
-SiweMessage instances can also be serialized as their EIP-4361 string representations via the Siwe::Message.prepare_message method:
+`Siwe::Message` instances can also be serialized as their EIP-4361 string representations via the `Siwe::Message.prepare_message` method:
 
 ```ruby
 require 'siwe'
@@ -89,13 +89,14 @@ Siwe::Message.new("domain.example", "0x9D85ca56217D2bb651b00f15e694EB7E713637D4"
 ```
 
 ## Example
-Parsing and verifying a Siwe::Message:
+Parsing and verifying a `Siwe::Message`:
 ```ruby
 require 'siwe'
 
 begin
-    message = Siwe::Message.from_message "domain.example wants you to sign in with your Ethereum account:\n0x9D85ca56217D2bb651b00f15e694EB7E713637D4\n\nExample statement for SIWE\n\nURI: some.uri\nVersion: 1\nChain ID: 1\nNonce: k1Ne4KWzBHYEFQo8\nIssued At: 2022-02-03T20:06:19Z"
-    message.validate("Some signature")
+    message = Siwe::Message.from_message "https://example.com wants you to sign in with your Ethereum account:\n0xA712a0AFBFA8656581BfA96352c9EdFc519e9cad\n\n\nURI: https://example.com\nVersion: 1\nChain ID: 1\nNonce: 9WrH24z8zpiYOoBQ\nIssued At: 2022-02-04T15:52:03Z"
+    message.validate "aca5e5649a357cee608ecbd1a8455b4143311381636b88a66ec7bcaf64b3a4743ff2c7cc18501a3401e182f79233dc73fc56d01506a6098d5e7e4d881bbb02921c"
+    puts "Congrats, your message is valid"
 rescue Siwe::ExpiredMessage
     # Used when the message is already expired. (Expires At < Time.now)
 rescue Siwe::NotValidMessage
@@ -103,5 +104,4 @@ rescue Siwe::NotValidMessage
 rescue Siwe::InvalidSignature
     # Used when the signature doesn't correspond to the address of the message.
 end
-# Message has been validated. Authentication complete. Continue with authorization/other.
 ```
