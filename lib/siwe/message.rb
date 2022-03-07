@@ -171,10 +171,10 @@ module Siwe
 
     def prepare_message
       greeting = "#{@domain} wants you to sign in with your Ethereum account:"
-      address = @address
+      address = @address.to_s
       statement = "\n#{@statement}\n"
 
-      header = [greeting, address.to_s]
+      header = [greeting, address]
 
       if @statement.empty?
         header.push "\n"
