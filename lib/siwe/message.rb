@@ -164,7 +164,6 @@ module Siwe
 
       raise Siwe::InvalidAddress unless @address.eql?(Eth::Address.new(@address).to_s)
 
-      puts "whatever"
       begin
         pub_key = Eth::Signature.personal_recover prepare_message, signature
         signature_address = Eth::Util.public_key_to_address pub_key
