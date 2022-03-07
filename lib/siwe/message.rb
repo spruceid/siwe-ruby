@@ -76,7 +76,7 @@ module Siwe
 
     def initialize(domain, address, uri, version, options = {})
       @domain = domain
-      @address = address
+      @address = Eth::Address.new address
       @uri = uri
       @version = version
 
@@ -117,7 +117,7 @@ module Siwe
     def to_json_string
       obj = {
         domain: @domain,
-        address: @address,
+        address: @address.to_s,
         uri: @uri,
         version: @version,
         chain_id: @chain_id,
@@ -174,7 +174,7 @@ module Siwe
       address = @address
       statement = "\n#{@statement}\n"
 
-      header = [greeting, address]
+      header = [greeting, address.to_s]
 
       if @statement.empty?
         header.push "\n"

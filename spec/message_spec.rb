@@ -35,7 +35,7 @@ RSpec.describe Siwe::Message do
 
   it "Creates a message with the correct fields with all fields" do
     expect(@message.domain).to eql(@domain)
-    expect(@message.address).to eql(@address)
+    expect(@message.address.to_s).to eql(@address)
     expect(@message.uri).to eql(@uri)
     expect(@message.version).to eql(@version)
     expect(@message.issued_at).to eql(@issued_at)
@@ -51,7 +51,7 @@ RSpec.describe Siwe::Message do
     @message = Siwe::Message.new(@domain, @address, @uri, @version)
 
     expect(@message.domain).to be @domain
-    expect(@message.address).to be @address
+    expect(@message.address.to_s).to eql(@address)
     expect(@message.uri).to be @uri
     expect(@message.version).to be @version
     expect(@message.issued_at).not_to eql("")
