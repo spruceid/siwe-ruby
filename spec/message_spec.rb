@@ -51,7 +51,7 @@ RSpec.describe Siwe::Message do
     @message = Siwe::Message.new(@domain, @address, @uri, @version)
 
     expect(@message.domain).to be @domain
-    expect(@message.address).to be @address
+    expect(@message.address).to eq(@address)
     expect(@message.uri).to be @uri
     expect(@message.version).to be @version
     expect(@message.issued_at).not_to eql("")
@@ -105,15 +105,25 @@ RSpec.describe Siwe::Message do
 
   it "Throws an error if the message is not yet valid" do
     key = Eth::Key.new
-    @message.address = key.address
+    @message.address = key.address.to_s
     @message.not_before = (Time.now.utc + days(1)).iso8601
     signature = key.personal_sign(@message.prepare_message)
     expect { @message.validate(signature) }.to raise_exception(Siwe::NotValidMessage, "Message not yet valid.")
   end
 
+  it "Throws an error if the message address is not EIP-55 complient" do
+    key = Eth::Key.new
+    @message.address = key.address.to_s.downcase
+    signature = key.personal_sign(@message.prepare_message)
+    expect do
+      @message.validate(signature)
+    end.to raise_exception(Siwe::InvalidAddress,
+                           "Address does not conform to EIP-55 or is invalid.")
+  end
+
   it "Throws an error if the message is expired" do
     key = Eth::Key.new
-    @message.address = key.address
+    @message.address = key.address.to_s
     @message.not_before = Time.now.utc.iso8601
     @message.expiration_time = (Time.now.utc + days(-2)).iso8601
     signature = key.personal_sign(@message.prepare_message)
@@ -122,7 +132,7 @@ RSpec.describe Siwe::Message do
 
   it "Successfully validates a signed message" do
     key = Eth::Key.new
-    @message.address = key.address
+    @message.address = key.address.to_s
     signature = key.personal_sign(@message.prepare_message)
     expect(@message.validate(signature)).to eql(true)
   end
@@ -130,9 +140,9 @@ RSpec.describe Siwe::Message do
   it "Fails with tempered message" do
     villain_key = Eth::Key.new
     key = Eth::Key.new
-    @message.address = key.address
+    @message.address = key.address.to_s
     signature = key.personal_sign(@message.prepare_message)
-    @message.address = villain_key.address
+    @message.address = villain_key.address.to_s
     expect do
       @message.validate(signature)
     end.to raise_exception(Siwe::InvalidSignature, "Signature doesn't match message.")

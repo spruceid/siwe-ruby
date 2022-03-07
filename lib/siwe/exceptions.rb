@@ -8,6 +8,13 @@ module Siwe
     end
   end
 
+  # Used when the address does not conform to EIP-55 or is invalid.
+  class InvalidAddress < StandardError
+    def initialize(msg = "Address does not conform to EIP-55 or is invalid.")
+      super
+    end
+  end
+
   # Used when the message is not yet valid. (Not Before > Time.now)
   class NotValidMessage < StandardError
     def initialize(msg = "Message not yet valid.")
