@@ -76,10 +76,15 @@ module Siwe
 
     def initialize(domain, address, uri, version, options = {})
       @domain = domain
-      @address = address
+      begin
+        @address = Eth::Address.new(address).to_s
+      rescue StandardError
+        raise Siwe::InvalidAddress
+      end
+      raise Siwe::InvalidAddress unless @address.eql? address
+
       @uri = uri
       @version = version
-
       @statement = options.fetch :statement, ""
       @issued_at = options.fetch :issued_at, Time.now.utc.iso8601
       @nonce = options.fetch :nonce, Siwe::Util.generate_nonce
@@ -94,7 +99,7 @@ module Siwe
       if (message = msg.match SIWE_MESSAGE)
         new(
           message[:domain],
-          message[:address],
+          Eth::Address.new(message[:address]).to_s,
           message[:uri],
           message[:version],
           {
@@ -117,7 +122,7 @@ module Siwe
     def to_json_string
       obj = {
         domain: @domain,
-        address: @address,
+        address: Eth::Address.new(@address).to_s,
         uri: @uri,
         version: @version,
         chain_id: @chain_id,
@@ -156,6 +161,8 @@ module Siwe
       raise Siwe::NotValidMessage if !@not_before.empty? && Time.now.utc < Time.parse(@not_before)
 
       raise Siwe::InvalidSignature if signature.empty?
+
+      raise Siwe::InvalidAddress unless @address.eql?(Eth::Address.new(@address).to_s)
 
       begin
         pub_key = Eth::Signature.personal_recover prepare_message, signature
