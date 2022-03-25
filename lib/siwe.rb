@@ -9,7 +9,11 @@ module Siwe
   autoload :ExpiredMessage, "siwe/exceptions"
   autoload :NotValidMessage, "siwe/exceptions"
   autoload :InvalidSignature, "siwe/exceptions"
+  autoload :InvalidDomain, "siwe/exceptions"
   autoload :InvalidAddress, "siwe/exceptions"
+  autoload :UnableToParseMessage, "siwe/exceptions"
+  autoload :InvalidTimeFormat, "siwe/exceptions"
+  autoload :InvalidMessageVersion, "siwe/exceptions"
 
   class Error < StandardError; end
 end

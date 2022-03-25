@@ -1,0 +1,3 @@
+[submodule "siwe"]
+	path = siwe
+	url = https://github.com/spruceid/siwe
