@@ -5,27 +5,26 @@ require "eth"
 require "json"
 
 DOMAIN = %r{(?<domain>[^/?#]+)}.freeze
-SIWE_DOMAIN = %r{^#{DOMAIN.source} wants you to sign in with your Ethereum account:\n}.freeze
+SIWE_DOMAIN = %r{^#{DOMAIN.source} wants you to sign in with your Ethereum account:}.freeze
 
-SIWE_ADDRESS = %r{(?<address>0x[a-zA-Z0-9]{40})\n\n}.freeze
-SIWE_STATEMENT = %r{((?<statement>[^\n]+)\n)?\n}.freeze
-RFC3986 = %r{([a-z0-9+.-]+):(?://(?:((?:[a-z0-9._~!$&'()*+,;=:-]|%[0-9A-F]{2})*)@)?((?:[a-z0-9._~!$&'()*+,;=-]|%[0-9A-F]{2})*)(?::(\d*))?(/(?:[a-z0-9._~!$&'()*+,;=:@/-]|%[0-9A-F]{2})*)?|(/?(?:[a-z0-9._~!$&'()*+,;=:@-]|%[0-9A-F]{2})+(?:[a-z0-9._~!$&'()*+,;=:@/-]|%[0-9A-F]{2})*)?)(?:\?((?:[a-z0-9._~!$&'()*+,;=:/?@-]|%[0-9A-F]{2})*))?(?:#((?:[a-z0-9._~!$&'()*+,;=:/?@-]|%[0-9A-F]{2})*))?}.freeze
-SIWE_URI_LINE = %r{URI: (?<uri>#{RFC3986.source})\n}.freeze
-SIWE_VERSION = %r{Version: (?<version>1)\n}.freeze
-SIWE_CHAIN_ID = %r{Chain ID: (?<chain_id>[0-9]+)\n}.freeze
-SIWE_NONCE = %r{Nonce: (?<nonce>[a-zA-Z0-9]{8,})\n}.freeze
+SIWE_ADDRESS = %r{\n(?<address>0x[a-zA-Z0-9]{40})\n\n}.freeze
+SIWE_STATEMENT = %r{((?<statement>[^\n]+)\n)?}.freeze
+RFC3986 = %r{(([^:?#]+):)?(([^?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?}.freeze
+SIWE_URI_LINE = %r{\nURI: (?<uri>#{RFC3986.source}?)}.freeze
+SIWE_VERSION = %r{\nVersion: (?<version>1)}.freeze
+SIWE_CHAIN_ID = %r{\nChain ID: (?<chain_id>[0-9]+)}.freeze
+SIWE_NONCE = %r{\nNonce: (?<nonce>[a-zA-Z0-9]{8,})}.freeze
 SIWE_DATETIME = %r{([0-9]+)-(0[1-9]|1[012])-(0[1-9]|[12][0-9]|3[01])[Tt]([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9]|60)(\.[0-9]+)?(([Zz])|([+|\-]([01][0-9]|2[0-3]):[0-5][0-9]))}.freeze
-SIWE_ISSUED_AT = %r{Issued At: (?<issued_at>#{SIWE_DATETIME.source})}.freeze
+SIWE_ISSUED_AT = %r{\nIssued At: (?<issued_at>#{SIWE_DATETIME.source})}.freeze
 SIWE_EXPIRATION_TIME = %r{(\nExpiration Time: (?<expiration_time>#{SIWE_DATETIME.source}))?}.freeze
 SIWE_NOT_BEFORE = %r{(\nNot Before: (?<not_before>#{SIWE_DATETIME.source}))?}.freeze
 SIWE_REQUEST_ID = %r{(\nRequest ID: (?<request_id>[-._~!$&'()*+,;=:@%a-zA-Z0-9]*))?}.freeze
-SIWE_RESOURCES = %r{(\nResources:(?<resources>(\n- #{RFC3986.source})+))?$}.freeze
+SIWE_RESOURCES = %r{(\nResources:(?<resources>(\n- #{RFC3986.source}?)+))?$}.freeze
 
 SIWE_MESSAGE = Regexp.new(SIWE_DOMAIN.source + SIWE_ADDRESS.source + SIWE_STATEMENT.source + SIWE_URI_LINE.source +
                           SIWE_VERSION.source + SIWE_CHAIN_ID.source + SIWE_NONCE.source + SIWE_ISSUED_AT.source +
                           SIWE_EXPIRATION_TIME.source + SIWE_NOT_BEFORE.source + SIWE_REQUEST_ID.source +
                           SIWE_RESOURCES.source)
-
 module Siwe
   # Class that defines the EIP-4361 message fields and some utility methods to
   # generate/validate the messages
@@ -94,8 +93,9 @@ module Siwe
 
     def self.from_message(msg)
       message = msg.match SIWE_MESSAGE
-      puts "FromMessage #{message[:domain]}"
-      raise Siwe::UnableToParseMessage unless (message = msg.match SIWE_MESSAGE)
+
+      raise Siwe::UnableToParseMessage unless message.to_s == msg
+
       new(
         message[:domain],
         message[:address],
@@ -152,49 +152,58 @@ module Siwe
     end
 
     def validate
-      #check domain
-      raise Siwe::InvalidDomain unless @domain.match %r{[^/?#]+}
+      # check domain
+      raise Siwe::InvalidDomain unless @domain.match %r{[^/?#]*} || @domain.empty?
 
-      #check address EIP-55
+      # check address EIP-55
       raise Siwe::InvalidAddress unless Eth::Address.new(@address).to_s.eql? @address
 
-      #check uri
+      # check uri
+      raise Siwe::InvalidURI unless URI.parse(@uri)
 
-      #check version
+      # check version
       raise Siwe::InvalidMessageVersion unless @version == "1"
 
-      #check nonce
+      # check if the nonce is alphanumeric and bigger then 8 characters
+      raise Siwe::InvalidNonce unless @nonce.match(%r{[a-zA-Z0-9]{8,}})
 
-      #check issued_at format
+      # check issued_at format
       begin
-        puts @issued_at
         Time.iso8601(@issued_at)
       rescue ArgumentError
         raise Siwe::InvalidTimeFormat, "issued_at"
       end
-      #check statement includes \n
 
-      #check exp_time
+      # check exp_time
       begin
         Time.iso8601(@expiration_time) unless @expiration_time.nil? || @expiration_time.empty?
       rescue ArgumentError
         raise Siwe::InvalidTimeFormat, "expiration_time"
       end
 
-      #check not_before
+      # check not_before
       begin
         Time.iso8601(@not_before) unless @not_before.nil? || @not_before.empty?
       rescue ArgumentError
         raise Siwe::InvalidTimeFormat, "not_before"
       end
+
+      # check resources
+      raise Siwe::InvalidURI unless @resources.nil? || @resources.empty? || @resources.each { |uri| URI.parse(uri) }
     end
 
-    def verify(signature)
-      raise Siwe::ExpiredMessage if !@expiration_time.empty? && Time.now.utc > Time.iso8601(@expiration_time)
+    def verify(signature, domain, time, nonce)
+      raise Siwe::DomainMismatch unless domain.nil? || domain.eql?(@domain)
 
-      raise Siwe::NotValidMessage if !@not_before.empty? && Time.now.utc < Time.iso8601(@not_before)
+      raise Siwe::NonceMismatch unless nonce.nil? || nonce.eql?(@nonce)
 
-      raise Siwe::InvalidSignature if signature.empty?
+      check_time = time.nil? ? Time.now.utc : Time.iso8601(time)
+
+      raise Siwe::ExpiredMessage if (!@expiration_time.nil? && !@expiration_time.empty?) && check_time > Time.iso8601(@expiration_time)
+
+      raise Siwe::NotValidMessage if (!@not_before.nil? && !@not_before.empty?) && check_time < Time.iso8601(@not_before)
+
+      raise Siwe::InvalidSignature if signature.nil? && signature.empty?
 
       raise Siwe::InvalidAddress unless @address.eql?(Eth::Address.new(@address).to_s)
 

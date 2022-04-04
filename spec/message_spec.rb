@@ -4,10 +4,10 @@ require "time"
 require "eth"
 require "json"
 
-parsing_negative = JSON.parse(File.read("../siwe/test/parsing_negative.json"))
-parsing_positive = JSON.parse(File.read("../siwe/test/parsing_positive.json"))
-validation_negative = JSON.parse(File.read("../siwe/test/validation_negative.json"))
-validation_positive = JSON.parse(File.read("../siwe/test/validation_positive.json"))
+parsing_negative = JSON.parse(File.read("siwe/test/parsing_negative.json"))
+parsing_positive = JSON.parse(File.read("siwe/test/parsing_positive.json"))
+verification_negative = JSON.parse(File.read("siwe/test/verification_negative.json"))
+verification_positive = JSON.parse(File.read("siwe/test/verification_positive.json"))
 
 def days(num)
   num * 24 * 60 * 60
@@ -107,7 +107,7 @@ RSpec.describe Siwe::Message do
   end
 
   it "Throws an error if the message is missing the signature" do
-    expect { @message.verify("") }.to raise_exception(Siwe::InvalidSignature, "Signature doesn't match message.")
+    expect { @message.verify("", nil, nil, nil) }.to raise_exception(Siwe::InvalidSignature, "Signature doesn't match message.")
   end
 
   it "Throws an error if the message is not yet valid" do
@@ -115,7 +115,7 @@ RSpec.describe Siwe::Message do
     @message.address = key.address.to_s
     @message.not_before = (Time.now.utc + days(1)).iso8601
     signature = key.personal_sign(@message.prepare_message)
-    expect { @message.verify(signature) }.to raise_exception(Siwe::NotValidMessage, "Message not yet valid.")
+    expect { @message.verify(signature, nil, nil, nil) }.to raise_exception(Siwe::NotValidMessage, "Message not yet valid.")
   end
 
   it "Throws an error if the message address is not EIP-55 complient" do
@@ -123,7 +123,7 @@ RSpec.describe Siwe::Message do
     @message.address = key.address.to_s.downcase
     signature = key.personal_sign(@message.prepare_message)
     expect do
-      @message.verify(signature)
+      @message.verify(signature, nil, nil, nil)
     end.to raise_exception(Siwe::InvalidAddress,
                            "Address does not conform to EIP-55 or is invalid.")
   end
@@ -134,14 +134,14 @@ RSpec.describe Siwe::Message do
     @message.not_before = Time.now.utc.iso8601
     @message.expiration_time = (Time.now.utc + days(-2)).iso8601
     signature = key.personal_sign(@message.prepare_message)
-    expect { @message.verify(signature) }.to raise_exception(Siwe::ExpiredMessage, "Message expired.")
+    expect { @message.verify(signature, nil, nil, nil) }.to raise_exception(Siwe::ExpiredMessage, "Expired message.")
   end
 
   it "Successfully verifys a signed message" do
     key = Eth::Key.new
     @message.address = key.address.to_s
     signature = key.personal_sign(@message.prepare_message)
-    expect(@message.verify(signature)).to eql(true)
+    expect(@message.verify(signature, nil, nil, nil)).to eql(true)
   end
 
   parsing_positive.each do |t_name, value|
@@ -170,6 +170,38 @@ RSpec.describe Siwe::Message do
     end
   end
 
+  verification_negative.each do |t_name, value|
+    it t_name do
+      expect do
+        Siwe::Message.new(value["domain"], value["address"], value["uri"], value["version"], {
+                            issued_at: value["issuedAt"],
+                            statement: value["statement"],
+                            nonce: value["nonce"],
+                            chain_id: value["chainId"],
+                            expiration_time: value["expirationTime"],
+                            not_before: value["notBefore"],
+                            request_id: value["requestId"],
+                            resources: value["resource"]
+                          }).verify(value["signature"], value["domainBinding"], value["time"], value["matchNonce"])
+      end.to raise_exception(StandardError)
+    end
+  end
+
+  verification_positive.each do |t_name, value|
+    it t_name do
+      expect(Siwe::Message.new(value["domain"], value["address"], value["uri"], value["version"], {
+                                 issued_at: value["issuedAt"],
+                                 statement: value["statement"],
+                                 nonce: value["nonce"],
+                                 chain_id: value["chainId"],
+                                 expiration_time: value["expirationTime"],
+                                 not_before: value["notBefore"],
+                                 request_id: value["requestId"],
+                                 resources: value["resource"]
+                               }).verify(value["signature"], value["domainBinding"], value["time"], value["matchNonce"])).to eql(true)
+    end
+  end
+
   it "Fails with tempered message" do
     villain_key = Eth::Key.new
     key = Eth::Key.new
@@ -177,7 +209,7 @@ RSpec.describe Siwe::Message do
     signature = key.personal_sign(@message.prepare_message)
     @message.address = villain_key.address.to_s
     expect do
-      @message.verify(signature)
+      @message.verify(signature, nil, nil, nil)
     end.to raise_exception(Siwe::InvalidSignature, "Signature doesn't match message.")
   end
 end
