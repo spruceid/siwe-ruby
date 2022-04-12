@@ -15,7 +15,7 @@ module Siwe
     end
   end
 
-  # Used when the domain don't match the domain provided for verification.
+  # Used when the domain doesn't match the domain provided for verification.
   class DomainMismatch < StandardError
     def initialize(msg = "Domain do not match provided domain for verification.")
       super
