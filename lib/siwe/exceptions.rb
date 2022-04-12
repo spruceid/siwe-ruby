@@ -24,7 +24,7 @@ module Siwe
 
   # Used when the nonce don't match the nonce provided for verification.
   class NonceMismatch < StandardError
-    def initialize(msg = "Nonce do not match provided nonce for verification.")
+    def initialize(msg = "Nonce does not match provided nonce for verification.")
       super
     end
   end
