@@ -22,7 +22,7 @@ module Siwe
     end
   end
 
-  # Used when the nonce don't match the nonce provided for verification.
+  # Used when the nonce doesn't match the nonce provided for verification.
   class NonceMismatch < StandardError
     def initialize(msg = "Nonce does not match provided nonce for verification.")
       super
@@ -57,7 +57,7 @@ module Siwe
     end
   end
 
-  # Used when the message contain a time format not complient to ISO8601.
+  # Used when the message contains a time format not compliant to ISO8601.
   class InvalidTimeFormat < StandardError
     def initialize(field, msg = "Invalid time format for: #{field}")
       super

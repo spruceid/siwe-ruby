@@ -137,7 +137,7 @@ RSpec.describe Siwe::Message do
     expect { @message.verify(signature, nil, nil, nil) }.to raise_exception(Siwe::ExpiredMessage, "Expired message.")
   end
 
-  it "Successfully verifys a signed message" do
+  it "Successfully verifies a signed message" do
     key = Eth::Key.new
     @message.address = key.address.to_s
     signature = key.personal_sign(@message.prepare_message)
