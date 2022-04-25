@@ -32,5 +32,11 @@ Metrics/ClassLength:
 Style/OptionalBooleanParameter:
   Enabled: false
 
+Style/RegexpLiteral:
+  Enabled: false
+
+Lint/MixedRegexpCaptureTypes:
+  Enabled: false
+
 Layout/LineLength:
-  Max: 120
+  Enabled: false
