@@ -25,6 +25,8 @@ SIWE_MESSAGE = Regexp.new(SIWE_DOMAIN.source + SIWE_ADDRESS.source + SIWE_STATEM
                           SIWE_VERSION.source + SIWE_CHAIN_ID.source + SIWE_NONCE.source + SIWE_ISSUED_AT.source +
                           SIWE_EXPIRATION_TIME.source + SIWE_NOT_BEFORE.source + SIWE_REQUEST_ID.source +
                           SIWE_RESOURCES.source)
+
+puts SIWE_MESSAGE.source
 module Siwe
   # Class that defines the EIP-4361 message fields and some utility methods to
   # generate/validate the messages
