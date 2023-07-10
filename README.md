@@ -69,7 +69,7 @@ Verification and authentication is performed via EIP-191, using the address fiel
 
 ```ruby
 begin
-    message.validate(signature) # returns true if valid throws otherwise
+    message.verify(signature, domain, time, nonce) # returns true if valid throws otherwise
 rescue Siwe::ExpiredMessage
     # Used when the message is already expired. (Expires At < Time.now)
 rescue Siwe::NotValidMessage
@@ -94,8 +94,8 @@ Parsing and verifying a `Siwe::Message`:
 require 'siwe'
 
 begin
-    message = Siwe::Message.from_message "https://example.com wants you to sign in with your Ethereum account:\n0xA712a0AFBFA8656581BfA96352c9EdFc519e9cad\n\n\nURI: https://example.com\nVersion: 1\nChain ID: 1\nNonce: 9WrH24z8zpiYOoBQ\nIssued At: 2022-02-04T15:52:03Z"
-    message.validate "aca5e5649a357cee608ecbd1a8455b4143311381636b88a66ec7bcaf64b3a4743ff2c7cc18501a3401e182f79233dc73fc56d01506a6098d5e7e4d881bbb02921c"
+  message = Siwe::Message.from_message "login.xyz wants you to sign in with your Ethereum account:\n0x9D85ca56217D2bb651b00f15e694EB7E713637D4\n\nSign-In With Ethereum Example Statement\n\nURI: https://login.xyz\nVersion: 1\nChain ID: 1\nNonce: bTyXgcQxn2htgkjJn\nIssued At: 2022-01-27T17:09:38.578Z\nExpiration Time: 2100-01-07T14:31:43.952Z"
+  message.verify("0xdc35c7f8ba2720df052e0092556456127f00f7707eaa8e3bbff7e56774e7f2e05a093cfc9e02964c33d86e8e066e221b7d153d27e5a2e97ccd5ca7d3f2ce06cb1b", "login.xyz", "2022-01-27T17:10:00Z", "bTyXgcQxn2htgkjJn")
     puts "Congrats, your message is valid"
 rescue Siwe::ExpiredMessage
     # Used when the message is already expired. (Expires At < Time.now)
